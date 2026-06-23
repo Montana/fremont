@@ -61,6 +61,25 @@ python seed.py
 ```
  
 The seed script drops and rebuilds `halo2_archive` with 5,000 players, 50,000 matches, 200,000 player stat lines, and 4 playlists, along with a realistic set of single-field and compound indexes. The random seed is fixed (`117`) so the data is reproducible between runs.
+
+## Feel Right At Home
+ 
+If you already know MongoDB, there's nothing new to learn — Fremont speaks the language you're used to, in both directions.
+ 
+- **Filters, projections, and sorts are just MongoDB query JSON.** Whatever you'd hand to `db.collection.find()`, you hand to Fremont: `--filter '{"map":"Lockout","playlist":"MLG"}'`, `--sort '{"played_at":-1}'`, `--projection '{"kills":1}'`. No bespoke query DSL, no wrapper syntax.
+- **Connections are plain URIs.** `--uri` (or `MONGO_URI`) takes the same `mongodb://...` connection string you'd give `mongosh` or any official driver.
+- **`explain` is the real plan.** Fremont calls PyMongo's `.explain()` and summarizes it; add `--raw` to get the full, untouched planner output exactly as the server returns it.
+- **`suggest-index` gives you copy-paste shell.** The suggestion comes out as a ready-to-run `db.<collection>.createIndex({ ... })` statement — drop it straight into `mongosh` or Compass.
+```text
+$ fremont suggest-index player_stats \
+    --filter '{"gamertag":"Crafty Kisses","playlist":"MLG"}' \
+    --sort '{"played_at":-1}'
+ 
+Suggested index:
+db.player_stats.createIndex({ "gamertag": 1, "playlist": 1, "played_at": -1 })
+```
+ 
+That's it — paste it into your shell and you're done. Fremont is a guide, not a new tool to learn.
  
 ## Configuration
  
