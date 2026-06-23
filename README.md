@@ -1,4 +1,4 @@
-<img width="1881" height="1059" alt="Untitled design - 2026-06-23T153908 465" src="https://github.com/user-attachments/assets/79165558-71ea-47e7-8903-da281ad6225a" />
+<img width="1881" height="1059" alt="Untitled design - 2026-06-23T154013 006" src="https://github.com/user-attachments/assets/f38a763d-2acc-499b-a55e-268ef3f85103" />
 
 # Fremont
 
