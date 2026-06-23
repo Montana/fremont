@@ -1,0 +1,11 @@
+services:
+  mongo:
+    image: mongo:7
+    container_name: fremont-halo2-demo
+    ports:
+      - "27017:27017"
+    volumes:
+      - fremont_mongo_data:/data/db
+
+volumes:
+  fremont_mongo_data:
