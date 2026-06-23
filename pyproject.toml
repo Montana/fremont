@@ -1,0 +1,30 @@
+[project]
+name = "fremont"
+version = "0.1.0"
+description = "A MongoDB performance helper CLI demo for a Halo 2 archive-style database."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Montana Mendy" }
+]
+dependencies = [
+  "pymongo>=4.6.0",
+  "typer>=0.12.0",
+  "rich>=13.7.0",
+  "python-dotenv>=1.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0",
+  "ruff>=0.5.0"
+]
+
+[project.scripts]
+fremont = "fremont.cli:app"
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
