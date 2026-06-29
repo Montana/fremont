@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "fremont"
 version = "0.1.0"
@@ -5,7 +9,7 @@ description = "A MongoDB performance helper CLI demo for a Halo 2 archive-style 
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-  { name = "Michael Mendy" }
+  { name = "Michael Allen Mendy" }
 ]
 dependencies = [
   "pymongo>=4.6.0",
@@ -23,15 +27,11 @@ dev = [
 [project.scripts]
 fremont = "fremont.cli:app"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.ruff]
 line-length = 100
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-
-[build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["src"]
