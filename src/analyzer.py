@@ -1,158 +1,127 @@
 from __future__ import annotations
 
-import statistics
-import time
-from typing import Any
+from datetime import datetime, timedelta, timezone
+import random
 
-from pymongo.database import Database
+from pymongo import MongoClient
 
+MONGO_URI = "mongodb://localhost:27017"
+DB_NAME = "halo2_archive"
 
-def database_overview(db: Database) -> list[dict[str, Any]]:
-    rows = []
+random.seed(117)
 
-    for name in db.list_collection_names():
-        collection = db[name]
+client = MongoClient(MONGO_URI)
+db = client[DB_NAME]
 
-        try:
-            documents = collection.estimated_document_count()
-        except Exception:
-            documents = -1
+for collection_name in ["players", "matches", "player_stats", "playlists"]:
+    db[collection_name].drop()
 
-        try:
-            indexes = list(collection.list_indexes())
-            index_count = len(indexes)
-        except Exception:
-            index_count = -1
+maps = [
+    "Lockout",
+    "Midship",
+    "Warlock",
+    "Beaver Creek",
+    "Sanctuary",
+    "Ivory Tower",
+    "Turf",
+    "Colossus",
+]
 
-        rows.append(
-            {
-                "collection": name,
-                "documents": documents,
-                "index_count": index_count,
-            }
-        )
+playlists = [
+    {"name": "MLG", "mode": "competitive", "team_size": 4},
+    {"name": "Team Slayer", "mode": "ranked", "team_size": 4},
+    {"name": "Double Team", "mode": "ranked", "team_size": 2},
+    {"name": "Rumble Pit", "mode": "ranked", "team_size": 1},
+]
 
-    return sorted(rows, key=lambda row: row["collection"])
+db.playlists.insert_many(playlists)
+db.playlists.create_index("name", unique=True)
 
+base_gamertags = [
+    "Crafty Kisses",
+    "StrongSide",
+    "Walshy",
+    "Karma",
+    "Ogre 1",
+    "Ogre 2",
+    "Dysphoria",
+    "Konishiwa",
+    "Latrine Marine",
+    "Donut650",
+    "GeXnY",
+    "gporter",
+]
 
-def collection_indexes(db: Database, collection_name: str) -> list[dict[str, Any]]:
-    return list(db[collection_name].list_indexes())
+players = []
+for i in range(5000):
+    if i < len(base_gamertags):
+        gamertag = base_gamertags[i]
+    else:
+        gamertag = f"Player{i:05d}"
 
+    players.append(
+        {
+            "gamertag": gamertag,
+            "region": random.choice(["West", "East", "Midwest", "South", "EU"]),
+            "joined_at": datetime.now(timezone.utc) - timedelta(days=random.randint(100, 7000)),
+            "highest_level": random.randint(1, 50),
+        }
+    )
 
-def explain_query(
-    db: Database,
-    collection_name: str,
-    filter_doc: dict[str, Any],
-    projection_doc: dict[str, Any] | None = None,
-    sort_doc: dict[str, int] | None = None,
-    limit: int = 0,
-) -> dict[str, Any]:
-    collection = db[collection_name]
-    cursor = collection.find(filter_doc, projection_doc or None)
+db.players.insert_many(players)
+db.players.create_index("gamertag", unique=True)
+db.players.create_index([("region", 1), ("highest_level", -1)])
 
-    if sort_doc:
-        cursor = cursor.sort(list(sort_doc.items()))
+matches = []
+for i in range(50000):
+    matches.append(
+        {
+            "match_id": f"match_{i:08d}",
+            "map": random.choice(maps),
+            "playlist": random.choice([p["name"] for p in playlists]),
+            "duration_seconds": random.randint(330, 900),
+            "played_at": datetime.now(timezone.utc) - timedelta(days=random.randint(1, 4200)),
+            "winner_team": random.choice(["red", "blue"]),
+        }
+    )
 
-    if limit:
-        cursor = cursor.limit(limit)
+db.matches.insert_many(matches)
+db.matches.create_index("match_id", unique=True)
+db.matches.create_index([("map", 1), ("playlist", 1), ("played_at", -1)])
+db.matches.create_index([("playlist", 1), ("winner_team", 1)])
 
-    return cursor.explain()
+stats = []
+for i in range(200000):
+    gamertag = random.choice(base_gamertags if random.random() < 0.08 else [f"Player{random.randint(12, 4999):05d}"])
+    kills = random.randint(1, 50)
+    deaths = random.randint(1, 45)
+    assists = random.randint(0, 25)
 
+    stats.append(
+        {
+            "stat_id": f"stat_{i:09d}",
+            "match_id": f"match_{random.randint(0, 49999):08d}",
+            "gamertag": gamertag,
+            "playlist": random.choice([p["name"] for p in playlists]),
+            "map": random.choice(maps),
+            "kills": kills,
+            "deaths": deaths,
+            "assists": assists,
+            "kd_ratio": round(kills / max(deaths, 1), 2),
+            "played_at": datetime.now(timezone.utc) - timedelta(days=random.randint(1, 4200)),
+        }
+    )
 
-def summarize_explain(explain: dict[str, Any]) -> dict[str, Any]:
-    execution = explain.get("executionStats", {})
-    query_planner = explain.get("queryPlanner", {})
-    winning_plan = query_planner.get("winningPlan", {})
+db.player_stats.insert_many(stats)
+db.player_stats.create_index("stat_id", unique=True)
+db.player_stats.create_index([("gamertag", 1), ("playlist", 1), ("played_at", -1)])
+db.player_stats.create_index([("gamertag", 1), ("playlist", 1), ("kills", -1)])
+db.player_stats.create_index([("map", 1), ("playlist", 1)])
+db.player_stats.create_index([("kd_ratio", -1)])
 
-    return {
-        "executionTimeMillis": execution.get("executionTimeMillis"),
-        "nReturned": execution.get("nReturned"),
-        "totalKeysExamined": execution.get("totalKeysExamined"),
-        "totalDocsExamined": execution.get("totalDocsExamined"),
-        "winningStage": extract_stage(winning_plan),
-        "indexUsed": extract_index_name(winning_plan),
-    }
-
-
-def extract_stage(plan: dict[str, Any]) -> str:
-    if not isinstance(plan, dict):
-        return "unknown"
-
-    if "stage" in plan:
-        stage = plan["stage"]
-        child = plan.get("inputStage")
-        if child:
-            return f"{stage} -> {extract_stage(child)}"
-        return stage
-
-    if "queryPlan" in plan:
-        return extract_stage(plan["queryPlan"])
-
-    if "inputStage" in plan:
-        return extract_stage(plan["inputStage"])
-
-    if "inputStages" in plan and plan["inputStages"]:
-        return ", ".join(extract_stage(stage) for stage in plan["inputStages"])
-
-    return "unknown"
-
-
-def extract_index_name(plan: dict[str, Any]) -> str:
-    if not isinstance(plan, dict):
-        return ""
-
-    if "indexName" in plan:
-        return plan["indexName"]
-
-    for key in ("queryPlan", "inputStage"):
-        if key in plan:
-            found = extract_index_name(plan[key])
-            if found:
-                return found
-
-    for stage in plan.get("inputStages", []):
-        found = extract_index_name(stage)
-        if found:
-            return found
-
-    return ""
-
-
-def benchmark_query(
-    db: Database,
-    collection_name: str,
-    filter_doc: dict[str, Any],
-    projection_doc: dict[str, Any] | None = None,
-    sort_doc: dict[str, int] | None = None,
-    limit: int = 0,
-    runs: int = 25,
-) -> dict[str, Any]:
-    collection = db[collection_name]
-    timings_ms: list[float] = []
-    returned_counts: list[int] = []
-
-    for _ in range(runs):
-        start = time.perf_counter()
-
-        cursor = collection.find(filter_doc, projection_doc or None)
-
-        if sort_doc:
-            cursor = cursor.sort(list(sort_doc.items()))
-
-        if limit:
-            cursor = cursor.limit(limit)
-
-        docs = list(cursor)
-        elapsed = (time.perf_counter() - start) * 1000
-
-        timings_ms.append(elapsed)
-        returned_counts.append(len(docs))
-
-    return {
-        "runs": runs,
-        "min_ms": round(min(timings_ms), 3),
-        "max_ms": round(max(timings_ms), 3),
-        "avg_ms": round(statistics.mean(timings_ms), 3),
-        "median_ms": round(statistics.median(timings_ms), 3),
-        "returned_count_last_run": returned_counts[-1] if returned_counts else 0,
-    }
+print("Seeded halo2_archive.")
+print("")
+print("Try:")
+print("fremont overview --db halo2_archive")
+print("fremont explain matches --db halo2_archive --filter '{\"map\":\"Lockout\",\"playlist\":\"MLG\"}' --sort '{\"played_at\":-1}' --limit 5")
+print("fremont benchmark player_stats --db halo2_archive --filter '{\"gamertag\":\"Crafty Kisses\",\"playlist\":\"MLG\"}' --sort '{\"kills\":-1}' --limit 10 --runs 50")
