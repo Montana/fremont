@@ -11,9 +11,9 @@ demo-up:
 	docker compose up -d
 
 demo-seed:
-	python scripts_seed_halo2.py
+	python seed.py
 
 demo:
 	docker compose up -d
-	python scripts_seed_halo2.py
+	python seed.py
 	fremont overview --db halo2_archive
