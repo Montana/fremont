@@ -5,7 +5,7 @@ description = "A MongoDB performance helper CLI demo for a Halo 2 archive-style 
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [
-  { name = "Montana Mendy" }
+  { name = "Michael Mendy" }
 ]
 dependencies = [
   "pymongo>=4.6.0",
@@ -28,3 +28,10 @@ line-length = 100
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
