@@ -152,7 +152,7 @@ Options: `--filter`, `--projection`, `--sort`, `--limit`, `--uri`, `--db`, `--ra
  
 The summary surfaces `executionTimeMillis`, `nReturned`, `totalKeysExamined`, `totalDocsExamined`, the winning stage chain (for example `LIMIT -> SORT -> FETCH -> IXSCAN`), and the name of the index that was used.
 
-## `mowry`
+## `Mowry`
 
 `mowry` is a diagnostic function that reads an explain summary (the dict returned by `summarize_explain`) and returns a list of plain-English observations. It is the fastest way to go from an explain result to an actionable verdict without reading the raw numbers yourself.
 
@@ -194,7 +194,7 @@ No obvious issues detected.
 
 `mowry` never touches the database; it reasons purely over the summary dict you pass in.
 
-## `decoto`
+## `Decoto`
 
 `decoto` scans a collection's index list and identifies any index whose key pattern is a strict prefix of another. Such an index is redundant — every query it can serve can also be served by the wider compound index — and is a candidate for removal to reduce write overhead.
 
@@ -232,7 +232,7 @@ Example output:
 
 An empty list means no redundancy was detected. `decoto` never queries the database; it works entirely from the index metadata you pass in.
 
-## `paseo padre`
+## `Paseo Padre`
 
 `paseo padre` compares two `benchmark_query` results — a *before* and an *after* — and returns delta statistics plus a plain-English verdict. It is the natural last step after adding an index: benchmark the query, create the index, benchmark again, then call `paseo_padre` to quantify the change.
 
@@ -285,9 +285,9 @@ Example output after adding a compound index:
 
 `paseo_padre` is a pure offline function — it only operates on the two dicts you pass in and never touches the database.
 
-## `palo_verde`
+## `Palo Verde`
 
-`palo_verde` checks how well your existing indexes cover a list of query shapes. For each shape it builds the ideal compound index (using the same ESR heuristic as `suggest-index`), then compares it against every index on the collection to determine coverage.
+`palo verde` checks how well your existing indexes cover a list of query shapes. For each shape it builds the ideal compound index (using the same ESR heuristic as `suggest-index`), then compares it against every index on the collection to determine coverage.
 
 ### Status values
 
