@@ -1,6 +1,8 @@
 <img width="1881" height="1059" alt="Untitled design - 2026-06-23T154013 006" src="https://github.com/user-attachments/assets/f38a763d-2acc-499b-a55e-268ef3f85103" />
 
 # Fremont
+
+_Feel like you're right at home_
  
 https://github.com/user-attachments/assets/2a5374e7-a440-41a2-9f4e-cfea79610e76
 
