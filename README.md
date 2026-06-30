@@ -12,7 +12,8 @@ Fremont helps you inspect MongoDB collections, read index definitions, run query
 - `matches`
 - `player_stats`
 - `playlists`
-You point Fremont at any MongoDB instance, hand it a collection and a query shape (filter / projection / sort / limit), and it tells you what the planner is doing, how fast it runs, and what index would help.
+- 
+You point Fremont at any MongoDB instance, hand it a collection and a query shape (filter / projection / sort / limit), and it tells you what the planner is doing, how fast it runs, and what index would help, also this is a good place to utilize `palo verde`.
  
 ## Features
  
