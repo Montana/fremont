@@ -193,6 +193,44 @@ No obvious issues detected.
 
 `mowry` never touches the database; it reasons purely over the summary dict you pass in.
 
+## `decoto`
+
+`decoto` scans a collection's index list and identifies any index whose key pattern is a strict prefix of another. Such an index is redundant — every query it can serve can also be served by the wider compound index — and is a candidate for removal to reduce write overhead.
+
+### How prefix detection works
+
+Index **A** is flagged as redundant when there exists an index **B** whose leading keys match A's keys exactly, in the same order and direction. For example:
+
+| Index A | Index B | Verdict |
+| ------- | ------- | ------- |
+| `{ gamertag: 1 }` | `{ gamertag: 1, playlist: 1 }` | A is redundant |
+| `{ a: 1, b: 1 }` | `{ a: 1, b: 1, c: 1 }` | A is redundant |
+| `{ played_at: 1 }` | `{ played_at: -1, kills: 1 }` | not redundant (direction differs) |
+| `{ gamertag: 1 }` | `{ playlist: 1, gamertag: 1 }` | not redundant (order differs) |
+
+The `_id_` index is always skipped.
+
+### Usage
+
+```python
+from fremont.analyzer import collection_indexes
+from fremont.index_advisor import decoto
+from fremont.mongo_client import get_database
+
+db = get_database("mongodb://localhost:27017", "halo2_archive")
+indexes = collection_indexes(db, "player_stats")
+for finding in decoto(indexes):
+    print(f"  {finding['redundant']} is covered by {finding['covered_by']}")
+```
+
+Example output:
+
+```
+  gamertag_1 is covered by gamertag_1_playlist_1_played_at_neg1
+```
+
+An empty list means no redundancy was detected. `decoto` never queries the database; it works entirely from the index metadata you pass in.
+
 ### `benchmark`
  
 Run a query shape repeatedly and report timing statistics.

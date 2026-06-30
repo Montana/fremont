@@ -18,6 +18,36 @@ def classify_filter_field(value: Any) -> str:
     return "complex"
 
 
+def decoto(indexes: list[dict]) -> list[dict]:
+    """Find indexes whose key pattern is a strict prefix of another index.
+
+    An index is redundant when every query it can satisfy can also be satisfied
+    by a wider compound index that starts with the same keys. Returns a list of
+    dicts with 'redundant' and 'covered_by' name strings. The built-in _id_
+    index is always skipped.
+    """
+    specs = [
+        (idx.get("name", ""), list((idx.get("key") or {}).items()))
+        for idx in indexes
+    ]
+
+    redundant: list[dict] = []
+    seen: set[str] = set()
+
+    for i, (name_a, keys_a) in enumerate(specs):
+        if name_a == "_id_" or not keys_a or name_a in seen:
+            continue
+        for j, (name_b, keys_b) in enumerate(specs):
+            if i == j or name_b == "_id_" or not keys_b:
+                continue
+            if len(keys_a) < len(keys_b) and keys_b[: len(keys_a)] == keys_a:
+                redundant.append({"redundant": name_a, "covered_by": name_b})
+                seen.add(name_a)
+                break
+
+    return redundant
+
+
 def suggest_compound_index(
     filter_doc: dict[str, Any],
     sort_doc: dict[str, int] | None = None,

@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from fremont.analyzer import mowry
-from fremont.index_advisor import classify_filter_field, suggest_compound_index
+from fremont.index_advisor import classify_filter_field, decoto, suggest_compound_index
 from fremont.json_tools import mongo_shell_doc, parse_json_object
 
 
@@ -170,3 +170,74 @@ def test_mowry_zero_returned_no_crash():
 def test_mowry_empty_summary_no_crash():
     result = mowry({})
     assert result == ["No obvious issues detected."]
+
+
+# --- decoto ----------------------------------------------------------------
+
+
+def _idx(name: str, keys: dict) -> dict:
+    return {"name": name, "key": keys}
+
+
+def test_decoto_empty_list():
+    assert decoto([]) == []
+
+
+def test_decoto_single_index():
+    assert decoto([_idx("gamertag_1", {"gamertag": 1})]) == []
+
+
+def test_decoto_no_redundancy():
+    indexes = [
+        _idx("gamertag_1", {"gamertag": 1}),
+        _idx("playlist_1", {"playlist": 1}),
+    ]
+    assert decoto(indexes) == []
+
+
+def test_decoto_prefix_is_redundant():
+    indexes = [
+        _idx("gamertag_1", {"gamertag": 1}),
+        _idx("gamertag_1_playlist_1", {"gamertag": 1, "playlist": 1}),
+    ]
+    result = decoto(indexes)
+    assert result == [{"redundant": "gamertag_1", "covered_by": "gamertag_1_playlist_1"}]
+
+
+def test_decoto_longer_prefix():
+    indexes = [
+        _idx("a_1_b_1", {"a": 1, "b": 1}),
+        _idx("a_1_b_1_c_1", {"a": 1, "b": 1, "c": 1}),
+    ]
+    result = decoto(indexes)
+    assert result == [{"redundant": "a_1_b_1", "covered_by": "a_1_b_1_c_1"}]
+
+
+def test_decoto_id_index_ignored():
+    indexes = [
+        _idx("_id_", {"_id": 1}),
+        _idx("gamertag_1", {"gamertag": 1}),
+        _idx("gamertag_1_playlist_1", {"gamertag": 1, "playlist": 1}),
+    ]
+    result = decoto(indexes)
+    assert all(r["redundant"] != "_id_" for r in result)
+    assert len(result) == 1
+
+
+def test_decoto_direction_mismatch_not_redundant():
+    indexes = [
+        _idx("played_at_1", {"played_at": 1}),
+        _idx("played_at_neg1_kills_1", {"played_at": -1, "kills": 1}),
+    ]
+    assert decoto(indexes) == []
+
+
+def test_decoto_no_double_report():
+    indexes = [
+        _idx("a_1", {"a": 1}),
+        _idx("a_1_b_1", {"a": 1, "b": 1}),
+        _idx("a_1_b_1_c_1", {"a": 1, "b": 1, "c": 1}),
+    ]
+    result = decoto(indexes)
+    names = [r["redundant"] for r in result]
+    assert names.count("a_1") == 1
