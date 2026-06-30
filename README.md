@@ -154,6 +154,38 @@ Options: `--filter`, `--projection`, `--sort`, `--limit`, `--uri`, `--db`, `--ra
  
 The summary surfaces `executionTimeMillis`, `nReturned`, `totalKeysExamined`, `totalDocsExamined`, the winning stage chain (for example `LIMIT -> SORT -> FETCH -> IXSCAN`), and the name of the index that was used.
 
+## `niles`
+
+`niles` scans a MongoDB filter document for known query anti-patterns — things that hurt performance regardless of what indexes exist. It is the right first check before you reach for `explain` or `suggest-index`.
+
+### What it checks
+
+| Anti-pattern | Warning |
+| ------------ | ------- |
+| Empty filter `{}` | Matches every document; will scan the entire collection |
+| `$where` operator | Executes JavaScript server-side; always forces a collection scan |
+| Unanchored `$regex` (no `^`) | Cannot use an index range scan; prefix with `^` to fix |
+| Negation-only filter (`$ne`/`$nin`/`$not` with no equality fields) | Cannot lead an index; pair with an equality predicate |
+| `$or` with more than 3 branches | May fall back to a collection scan on branches without dedicated indexes |
+
+### Usage
+
+```python
+from fremont.index_advisor import niles
+
+for warning in niles({"gamertag": {"$regex": "Crafty"}, "map": {"$ne": "Lockout"}}):
+    print(warning)
+```
+
+Example output:
+
+```
+Unanchored $regex on 'gamertag' — prefix the pattern with ^ to allow an index range scan instead of a full scan.
+Negation-only predicate on 'map' ($ne/$nin/$not) cannot be a leading index key — pair it with an equality field.
+```
+
+A clean filter returns an empty list. `niles` never touches the database.
+
 ## `Mowry`
 
 `mowry` is a diagnostic function that reads an explain summary (the dict returned by `summarize_explain`) and returns a list of plain-English observations. It is the fastest way to go from an explain result to an actionable verdict without reading the raw numbers yourself.

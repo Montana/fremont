@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from fremont.analyzer import mowry, paseo_padre
-from fremont.index_advisor import classify_filter_field, decoto, palo_verde, suggest_compound_index
+from fremont.index_advisor import classify_filter_field, decoto, niles, palo_verde, suggest_compound_index
 from fremont.json_tools import mongo_shell_doc, parse_json_object
 
 
@@ -353,3 +353,53 @@ def test_palo_verde_result_keys():
     indexes = [_spec("playlist_1", {"playlist": 1})]
     result = palo_verde(shapes, indexes)
     assert set(result[0].keys()) == {"filter", "sort", "status", "covered_by"}
+
+
+# --- niles -----------------------------------------------------------------
+
+
+def test_niles_clean_filter():
+    assert niles({"gamertag": "Crafty Kisses", "playlist": "MLG"}) == []
+
+
+def test_niles_empty_filter():
+    result = niles({})
+    assert len(result) == 1
+    assert "Empty filter" in result[0]
+
+
+def test_niles_where():
+    result = niles({"$where": "this.kills > 10"})
+    assert any("$where" in w for w in result)
+
+
+def test_niles_unanchored_regex():
+    result = niles({"gamertag": {"$regex": "Crafty"}})
+    assert any("Unanchored" in w and "gamertag" in w for w in result)
+
+
+def test_niles_anchored_regex_no_warning():
+    assert niles({"gamertag": {"$regex": "^Crafty"}}) == []
+
+
+def test_niles_negation_only():
+    result = niles({"playlist": {"$ne": "MLG"}})
+    assert any("Negation-only" in w and "playlist" in w for w in result)
+
+
+def test_niles_negation_with_equality_no_warning():
+    assert niles({"gamertag": "Crafty Kisses", "playlist": {"$ne": "MLG"}}) == []
+
+
+def test_niles_large_or():
+    result = niles({"$or": [{"a": 1}, {"b": 2}, {"c": 3}, {"d": 4}]})
+    assert any("$or" in w for w in result)
+
+
+def test_niles_small_or_no_warning():
+    assert niles({"$or": [{"playlist": "MLG"}, {"playlist": "Team Slayer"}]}) == []
+
+
+def test_niles_multiple_warnings():
+    result = niles({"gamertag": {"$regex": "Crafty"}, "map": {"$ne": "Lockout"}})
+    assert len(result) >= 2

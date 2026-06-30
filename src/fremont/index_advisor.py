@@ -1,6 +1,7 @@
 from typing import Any
 
 RANGE_OPERATORS = {"$gt", "$gte", "$lt", "$lte", "$ne", "$nin", "$regex"}
+NEGATION_OPERATORS = {"$ne", "$nin", "$not"}
 
 
 def classify_filter_field(value: Any) -> str:
@@ -16,6 +17,61 @@ def classify_filter_field(value: Any) -> str:
         return "equality"
 
     return "complex"
+
+
+def niles(filter_doc: dict[str, Any]) -> list[str]:
+    """Scan a MongoDB filter for known query anti-patterns.
+
+    Returns a list of warning strings describing patterns that hurt performance
+    regardless of what indexes exist. An empty list means no anti-patterns were
+    detected. Never touches the database.
+    """
+    warnings: list[str] = []
+
+    if not filter_doc:
+        warnings.append(
+            "Empty filter matches every document and will scan the entire collection."
+        )
+        return warnings
+
+    if "$where" in filter_doc:
+        warnings.append(
+            "$where executes JavaScript server-side and forces a collection scan."
+        )
+
+    or_branches = filter_doc.get("$or")
+    if isinstance(or_branches, list) and len(or_branches) > 3:
+        warnings.append(
+            f"$or with {len(or_branches)} branches may not use indexes on every branch "
+            "— consider restructuring or adding targeted indexes."
+        )
+
+    has_equality = any(
+        not k.startswith("$") and not isinstance(v, dict)
+        for k, v in filter_doc.items()
+    )
+
+    for field, value in filter_doc.items():
+        if field.startswith("$") or not isinstance(value, dict):
+            continue
+
+        operators = set(value.keys())
+
+        if "$regex" in operators:
+            pattern = value["$regex"]
+            if isinstance(pattern, str) and not pattern.startswith("^"):
+                warnings.append(
+                    f"Unanchored $regex on '{field}' — prefix the pattern with ^ "
+                    "to allow an index range scan instead of a full scan."
+                )
+
+        if not has_equality and operators and operators <= NEGATION_OPERATORS:
+            warnings.append(
+                f"Negation-only predicate on '{field}' ($ne/$nin/$not) cannot be a "
+                "leading index key — pair it with an equality field."
+            )
+
+    return warnings
 
 
 def decoto(indexes: list[dict]) -> list[dict]:
