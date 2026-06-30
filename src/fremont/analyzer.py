@@ -152,6 +152,40 @@ def mowry(summary: dict[str, Any]) -> list[str]:
     return findings
 
 
+def paseo_padre(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    """Compare two benchmark_query results and summarise the performance delta.
+
+    Returns avg/median deltas in milliseconds, percent changes, and a
+    plain-English verdict: 'improved', 'regressed', or 'unchanged'.
+    A change is considered significant when the avg shifts by more than 5 %.
+    """
+    avg_before = before.get("avg_ms") or 0.0
+    avg_after = after.get("avg_ms") or 0.0
+    median_before = before.get("median_ms") or 0.0
+    median_after = after.get("median_ms") or 0.0
+
+    avg_delta = round(avg_after - avg_before, 3)
+    median_delta = round(median_after - median_before, 3)
+
+    avg_pct = round((avg_delta / avg_before) * 100, 1) if avg_before else 0.0
+    median_pct = round((median_delta / median_before) * 100, 1) if median_before else 0.0
+
+    if avg_pct < -5:
+        verdict = "improved"
+    elif avg_pct > 5:
+        verdict = "regressed"
+    else:
+        verdict = "unchanged"
+
+    return {
+        "avg_delta_ms": avg_delta,
+        "avg_change_pct": avg_pct,
+        "median_delta_ms": median_delta,
+        "median_change_pct": median_pct,
+        "verdict": verdict,
+    }
+
+
 def benchmark_query(
     db: Database,
     collection_name: str,

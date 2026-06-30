@@ -231,6 +231,59 @@ Example output:
 
 An empty list means no redundancy was detected. `decoto` never queries the database; it works entirely from the index metadata you pass in.
 
+## `paseo_padre`
+
+`paseo_padre` compares two `benchmark_query` results — a *before* and an *after* — and returns delta statistics plus a plain-English verdict. It is the natural last step after adding an index: benchmark the query, create the index, benchmark again, then call `paseo_padre` to quantify the change.
+
+### Return value
+
+| Key | Type | Description |
+| --- | ---- | ----------- |
+| `avg_delta_ms` | float | `after.avg_ms − before.avg_ms` |
+| `avg_change_pct` | float | Percent change in average latency |
+| `median_delta_ms` | float | `after.median_ms − before.median_ms` |
+| `median_change_pct` | float | Percent change in median latency |
+| `verdict` | str | `"improved"`, `"regressed"`, or `"unchanged"` |
+
+The verdict threshold is **5 %** on average latency — smaller swings are reported as `"unchanged"`.
+
+### Usage
+
+```python
+from fremont.analyzer import benchmark_query, paseo_padre
+from fremont.mongo_client import get_database
+
+db = get_database("mongodb://localhost:27017", "halo2_archive")
+query = dict(
+    collection_name="player_stats",
+    filter_doc={"gamertag": "Crafty Kisses", "playlist": "MLG"},
+    sort_doc={"played_at": -1},
+    limit=10,
+    runs=50,
+)
+
+before = benchmark_query(db, **query)
+# → create your index here, e.g. via mongosh or Compass
+after = benchmark_query(db, **query)
+
+report = paseo_padre(before, after)
+print(report)
+```
+
+Example output after adding a compound index:
+
+```json
+{
+  "avg_delta_ms": -4.312,
+  "avg_change_pct": -83.1,
+  "median_delta_ms": -4.1,
+  "median_change_pct": -81.4,
+  "verdict": "improved"
+}
+```
+
+`paseo_padre` is a pure offline function — it only operates on the two dicts you pass in and never touches the database.
+
 ### `benchmark`
  
 Run a query shape repeatedly and report timing statistics.

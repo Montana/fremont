@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from fremont.analyzer import mowry
+from fremont.analyzer import mowry, paseo_padre
 from fremont.index_advisor import classify_filter_field, decoto, suggest_compound_index
 from fremont.json_tools import mongo_shell_doc, parse_json_object
 
@@ -241,3 +241,49 @@ def test_decoto_no_double_report():
     result = decoto(indexes)
     names = [r["redundant"] for r in result]
     assert names.count("a_1") == 1
+
+
+# --- paseo_padre -----------------------------------------------------------
+
+
+def _bench(avg_ms: float, median_ms: float) -> dict:
+    return {"runs": 25, "min_ms": 0.1, "max_ms": 1.0, "avg_ms": avg_ms, "median_ms": median_ms}
+
+
+def test_paseo_padre_improved():
+    result = paseo_padre(_bench(10.0, 10.0), _bench(2.0, 2.0))
+    assert result["verdict"] == "improved"
+    assert result["avg_delta_ms"] == -8.0
+    assert result["avg_change_pct"] == -80.0
+
+
+def test_paseo_padre_regressed():
+    result = paseo_padre(_bench(2.0, 2.0), _bench(10.0, 10.0))
+    assert result["verdict"] == "regressed"
+    assert result["avg_delta_ms"] == 8.0
+    assert result["avg_change_pct"] == 400.0
+
+
+def test_paseo_padre_unchanged():
+    result = paseo_padre(_bench(5.0, 5.0), _bench(5.1, 5.1))
+    assert result["verdict"] == "unchanged"
+
+
+def test_paseo_padre_within_threshold():
+    result = paseo_padre(_bench(10.0, 10.0), _bench(10.4, 10.4))
+    assert result["verdict"] == "unchanged"
+
+
+def test_paseo_padre_exact_keys_present():
+    result = paseo_padre(_bench(4.0, 4.0), _bench(2.0, 3.0))
+    assert set(result.keys()) == {
+        "avg_delta_ms", "avg_change_pct",
+        "median_delta_ms", "median_change_pct",
+        "verdict",
+    }
+
+
+def test_paseo_padre_zero_before_no_crash():
+    result = paseo_padre(_bench(0.0, 0.0), _bench(5.0, 5.0))
+    assert result["verdict"] in {"improved", "regressed", "unchanged"}
+    assert result["avg_change_pct"] == 0.0
