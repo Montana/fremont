@@ -48,6 +48,64 @@ def decoto(indexes: list[dict]) -> list[dict]:
     return redundant
 
 
+def palo_verde(
+    query_shapes: list[dict[str, Any]],
+    index_specs: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Score how well existing indexes cover a list of query shapes.
+
+    For each shape (keys: 'filter' and optionally 'sort'), builds the ideal
+    compound index via the ESR heuristic, then checks whether any existing
+    index's leading keys fully or partially cover it.
+
+    Each result dict contains:
+      - 'filter':     the original filter dict
+      - 'sort':       the original sort dict (empty dict if omitted)
+      - 'status':     'covered', 'partial', or 'uncovered'
+      - 'covered_by': index name of the best match, or None
+    """
+    existing: list[tuple[str, list[tuple[str, int]]]] = [
+        (idx.get("name", ""), list((idx.get("key") or {}).items()))
+        for idx in index_specs
+        if idx.get("name") != "_id_"
+    ]
+
+    results: list[dict[str, Any]] = []
+
+    for shape in query_shapes:
+        filter_doc: dict[str, Any] = shape.get("filter") or {}
+        sort_doc: dict[str, int] = shape.get("sort") or {}
+
+        ideal = list(suggest_compound_index(filter_doc, sort_doc).items())
+
+        best_len = 0
+        best_name: str | None = None
+
+        for name, keys in existing:
+            prefix_len = 0
+            for i, pair in enumerate(ideal):
+                if i >= len(keys) or keys[i] != pair:
+                    break
+                prefix_len += 1
+            if prefix_len > best_len:
+                best_len = prefix_len
+                best_name = name
+
+        if not ideal or best_len == 0:
+            status = "uncovered"
+            best_name = None
+        elif best_len >= len(ideal):
+            status = "covered"
+        else:
+            status = "partial"
+
+        results.append(
+            {"filter": filter_doc, "sort": sort_doc, "status": status, "covered_by": best_name}
+        )
+
+    return results
+
+
 def suggest_compound_index(
     filter_doc: dict[str, Any],
     sort_doc: dict[str, int] | None = None,

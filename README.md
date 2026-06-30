@@ -285,6 +285,59 @@ Example output after adding a compound index:
 
 `paseo_padre` is a pure offline function — it only operates on the two dicts you pass in and never touches the database.
 
+## `palo_verde`
+
+`palo_verde` checks how well your existing indexes cover a list of query shapes. For each shape it builds the ideal compound index (using the same ESR heuristic as `suggest-index`), then compares it against every index on the collection to determine coverage.
+
+### Status values
+
+| Status | Meaning |
+| ------ | ------- |
+| `"covered"` | An existing index's leading keys fully satisfy the ideal key pattern |
+| `"partial"` | An existing index matches some leading keys but not all |
+| `"uncovered"` | No existing index helps with this query shape |
+
+### Return value
+
+A list of dicts, one per input shape:
+
+| Key | Description |
+| --- | ----------- |
+| `filter` | The filter dict from the input shape |
+| `sort` | The sort dict from the input shape (empty dict if omitted) |
+| `status` | `"covered"`, `"partial"`, or `"uncovered"` |
+| `covered_by` | Name of the best-matching index, or `None` |
+
+### Usage
+
+```python
+from fremont.analyzer import collection_indexes
+from fremont.index_advisor import palo_verde
+from fremont.mongo_client import get_database
+
+db = get_database("mongodb://localhost:27017", "halo2_archive")
+indexes = collection_indexes(db, "player_stats")
+
+shapes = [
+    {"filter": {"gamertag": "Crafty Kisses", "playlist": "MLG"}, "sort": {"played_at": -1}},
+    {"filter": {"map": "Lockout"}, "sort": {"kills": -1}},
+    {"filter": {"kills": {"$gte": 25}}},
+]
+
+for row in palo_verde(shapes, indexes):
+    print(row["status"], "—", row["covered_by"], "|", row["filter"])
+```
+
+Example output:
+
+```
+covered  — gamertag_1_playlist_1_played_at_neg1 | {'gamertag': 'Crafty Kisses', 'playlist': 'MLG'}
+partial  — map_1                                | {'map': 'Lockout'}
+uncovered — None                               | {'kills': {'$gte': 25}}
+```
+
+Use the `"uncovered"` and `"partial"` rows as direct input to `suggest-index` to know exactly what index to create next. `palo_verde` never touches the database — it reasons purely from the index metadata and query shapes you provide.
+
 ### `benchmark`
  
 Run a query shape repeatedly and report timing statistics.

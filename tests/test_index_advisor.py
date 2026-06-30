@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from fremont.analyzer import mowry, paseo_padre
-from fremont.index_advisor import classify_filter_field, decoto, suggest_compound_index
+from fremont.index_advisor import classify_filter_field, decoto, palo_verde, suggest_compound_index
 from fremont.json_tools import mongo_shell_doc, parse_json_object
 
 
@@ -287,3 +287,75 @@ def test_paseo_padre_zero_before_no_crash():
     result = paseo_padre(_bench(0.0, 0.0), _bench(5.0, 5.0))
     assert result["verdict"] in {"improved", "regressed", "unchanged"}
     assert result["avg_change_pct"] == 0.0
+
+
+# --- palo_verde ------------------------------------------------------------
+
+
+def _spec(name: str, keys: dict) -> dict:
+    return {"name": name, "key": keys}
+
+
+def test_palo_verde_empty_shapes():
+    assert palo_verde([], [_spec("gamertag_1", {"gamertag": 1})]) == []
+
+
+def test_palo_verde_no_indexes():
+    shapes = [{"filter": {"gamertag": "Crafty Kisses"}}]
+    result = palo_verde(shapes, [])
+    assert result[0]["status"] == "uncovered"
+    assert result[0]["covered_by"] is None
+
+
+def test_palo_verde_covered():
+    shapes = [{"filter": {"gamertag": "Crafty Kisses", "playlist": "MLG"}}]
+    indexes = [_spec("gamertag_1_playlist_1", {"gamertag": 1, "playlist": 1})]
+    result = palo_verde(shapes, indexes)
+    assert result[0]["status"] == "covered"
+    assert result[0]["covered_by"] == "gamertag_1_playlist_1"
+
+
+def test_palo_verde_partial():
+    shapes = [{"filter": {"gamertag": "Crafty Kisses", "playlist": "MLG"}, "sort": {"played_at": -1}}]
+    indexes = [_spec("gamertag_1_playlist_1", {"gamertag": 1, "playlist": 1})]
+    result = palo_verde(shapes, indexes)
+    assert result[0]["status"] == "partial"
+    assert result[0]["covered_by"] == "gamertag_1_playlist_1"
+
+
+def test_palo_verde_uncovered():
+    shapes = [{"filter": {"kills": {"$gte": 25}}}]
+    indexes = [_spec("gamertag_1", {"gamertag": 1})]
+    result = palo_verde(shapes, indexes)
+    assert result[0]["status"] == "uncovered"
+
+
+def test_palo_verde_multiple_shapes():
+    shapes = [
+        {"filter": {"gamertag": "Crafty Kisses"}},
+        {"filter": {"map": "Lockout"}, "sort": {"played_at": -1}},
+    ]
+    indexes = [
+        _spec("gamertag_1", {"gamertag": 1}),
+        _spec("map_1_played_at_neg1", {"map": 1, "played_at": -1}),
+    ]
+    result = palo_verde(shapes, indexes)
+    assert result[0]["status"] == "covered"
+    assert result[1]["status"] == "covered"
+
+
+def test_palo_verde_id_index_ignored():
+    shapes = [{"filter": {"gamertag": "Crafty Kisses"}}]
+    indexes = [
+        _spec("_id_", {"_id": 1}),
+        _spec("gamertag_1", {"gamertag": 1}),
+    ]
+    result = palo_verde(shapes, indexes)
+    assert result[0]["covered_by"] == "gamertag_1"
+
+
+def test_palo_verde_result_keys():
+    shapes = [{"filter": {"playlist": "MLG"}}]
+    indexes = [_spec("playlist_1", {"playlist": 1})]
+    result = palo_verde(shapes, indexes)
+    assert set(result[0].keys()) == {"filter", "sort", "status", "covered_by"}
