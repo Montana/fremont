@@ -150,7 +150,49 @@ fremont explain matches \
 Options: `--filter`, `--projection`, `--sort`, `--limit`, `--uri`, `--db`, `--raw`.
  
 The summary surfaces `executionTimeMillis`, `nReturned`, `totalKeysExamined`, `totalDocsExamined`, the winning stage chain (for example `LIMIT -> SORT -> FETCH -> IXSCAN`), and the name of the index that was used.
- 
+
+## `mowry`
+
+`mowry` is a diagnostic function that reads an explain summary (the dict returned by `summarize_explain`) and returns a list of plain-English observations. It is the fastest way to go from an explain result to an actionable verdict without reading the raw numbers yourself.
+
+### What it checks
+
+| Condition | Finding |
+| --------- | ------- |
+| Winning stage contains `COLLSCAN` | Collection scan — no index is being used |
+| `totalDocsExamined / nReturned > 10` | Index exists but isn't selective enough |
+| `totalKeysExamined / nReturned > 10` | A more specific compound index may help |
+| None of the above | `"No obvious issues detected."` |
+
+### Usage
+
+`mowry` is a Python-level helper, not a CLI command. Call it after `explain_query` + `summarize_explain`:
+
+```python
+from fremont.analyzer import explain_query, mowry, summarize_explain
+from fremont.mongo_client import get_database
+
+db = get_database("mongodb://localhost:27017", "halo2_archive")
+raw = explain_query(db, "player_stats", {"gamertag": "Crafty Kisses", "playlist": "MLG"})
+summary = summarize_explain(raw)
+for finding in mowry(summary):
+    print(finding)
+```
+
+Example output when no index covers the query:
+
+```
+Collection scan detected — no index is being used for this query shape.
+```
+
+Example output when a covering index is in place:
+
+```
+No obvious issues detected.
+```
+
+`mowry` never touches the database; it reasons purely over the summary dict you pass in.
+
 ### `benchmark`
  
 Run a query shape repeatedly and report timing statistics.
@@ -282,19 +324,73 @@ make demo        # up + seed + overview, end to end
 ```text
 fremont/
   src/
-    analyzer.py        # overview, indexes, explain, benchmark logic
-    cli.py             # Typer command definitions
-    config.py          # settings + .env loading
-    index_advisor.py   # ESR compound-index heuristic
-    json_tools.py      # JSON parsing + mongo-shell rendering
-    mongo_client.py    # PyMongo connection helper
-    reporting.py       # Rich table rendering
+    fremont/
+      __init__.py
+      analyzer.py        # overview, indexes, explain, benchmark logic
+      cli.py             # Typer command definitions
+      config.py          # settings + .env loading
+      index_advisor.py   # ESR compound-index heuristic
+      json_tools.py      # JSON parsing + mongo-shell rendering
+      mongo_client.py    # PyMongo connection helper
+      reporting.py       # Rich table rendering
+  tests/
+    test_index_advisor.py  # offline unit tests (ESR heuristic + JSON tools)
   seed.py              # builds the halo2_archive demo data
   docker-compose.yml   # mongo:7 service
   Makefile             # install / lint / test / demo targets
+  pyproject.toml       # package metadata and tool config
   fremont.mp4          # demo recording
   README.md
 ```
  
+## Connecting to MongoDB Atlas
+
+`--uri` (or `MONGO_URI`) accepts any valid connection string, including Atlas:
+
+```dotenv
+MONGO_URI=mongodb+srv://<user>:<password>@cluster0.example.mongodb.net/?retryWrites=true&w=majority
+MONGO_DB=halo2_archive
+```
+
+Then every command works exactly the same as with a local instance:
+
+```bash
+fremont overview
+fremont explain matches --filter '{"map":"Lockout"}' --sort '{"played_at":-1}'
+```
+
+`suggest-index` never opens a connection at all, so it works offline regardless of what `MONGO_URI` is set to.
+
+## Testing
+
+The test suite covers the two purely offline modules — the ESR index heuristic and the JSON parsing helpers — so no running MongoDB is required:
+
+```bash
+pytest -q
+```
+
+Tests live in `tests/test_index_advisor.py` and mirror the worked examples in this README. The intent is that if a documented example ever breaks, a test breaks with it. The MongoDB-backed commands (`overview`, `indexes`, `explain`, `benchmark`) are not covered by automated tests; use `make demo` to exercise them end-to-end against the Docker-hosted instance.
+
+## Development
+
+```bash
+# 1. Create and activate a virtual environment
+python -m venv .venv && source .venv/bin/activate
+
+# 2. Install the package and dev dependencies
+make install
+
+# 3. Lint
+make lint
+
+# 4. Run tests (no MongoDB needed)
+make test
+
+# 5. Spin up the full demo stack
+make demo
+```
+
+Fremont uses [Ruff](https://docs.astral.sh/ruff/) for linting (`line-length = 100`). Run `ruff check --fix .` to apply auto-fixable suggestions before committing.
+
 ## Author
 Michael Allen Mendy. (c) 2026. Named after my hometown.

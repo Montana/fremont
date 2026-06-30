@@ -118,6 +118,40 @@ def extract_index_name(plan: dict[str, Any]) -> str:
     return ""
 
 
+def mowry(summary: dict[str, Any]) -> list[str]:
+    """Diagnose an explain summary and return actionable observations."""
+    findings: list[str] = []
+
+    stage = summary.get("winningStage") or ""
+    if "COLLSCAN" in stage:
+        findings.append(
+            "Collection scan detected — no index is being used for this query shape."
+        )
+
+    docs_examined = summary.get("totalDocsExamined") or 0
+    n_returned = summary.get("nReturned") or 0
+
+    if docs_examined > 0 and n_returned > 0 and docs_examined / n_returned > 10:
+        findings.append(
+            f"High docs-examined-to-returned ratio "
+            f"({docs_examined}/{n_returned} = {docs_examined / n_returned:.1f}x) — "
+            "the index may not be selective enough."
+        )
+
+    keys_examined = summary.get("totalKeysExamined") or 0
+    if keys_examined > 0 and n_returned > 0 and keys_examined / n_returned > 10:
+        findings.append(
+            f"High keys-examined-to-returned ratio "
+            f"({keys_examined}/{n_returned} = {keys_examined / n_returned:.1f}x) — "
+            "a more specific compound index may help."
+        )
+
+    if not findings:
+        findings.append("No obvious issues detected.")
+
+    return findings
+
+
 def benchmark_query(
     db: Database,
     collection_name: str,

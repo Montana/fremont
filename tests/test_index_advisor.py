@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 
+from fremont.analyzer import mowry
 from fremont.index_advisor import classify_filter_field, suggest_compound_index
 from fremont.json_tools import mongo_shell_doc, parse_json_object
 
@@ -113,3 +114,59 @@ def test_parse_rejects_bad_json():
 def test_mongo_shell_doc_rendering():
     rendered = mongo_shell_doc({"gamertag": 1, "playlist": 1, "played_at": -1})
     assert rendered == '{ "gamertag": 1, "playlist": 1, "played_at": -1 }'
+
+
+# --- mowry -----------------------------------------------------------------
+
+
+def _summary(
+    *,
+    stage: str = "FETCH -> IXSCAN",
+    n_returned: int = 10,
+    docs_examined: int = 10,
+    keys_examined: int = 10,
+) -> dict:
+    return {
+        "executionTimeMillis": 1,
+        "nReturned": n_returned,
+        "totalDocsExamined": docs_examined,
+        "totalKeysExamined": keys_examined,
+        "winningStage": stage,
+        "indexUsed": "gamertag_1",
+    }
+
+
+def test_mowry_no_issues():
+    result = mowry(_summary())
+    assert result == ["No obvious issues detected."]
+
+
+def test_mowry_collscan_detected():
+    result = mowry(_summary(stage="COLLSCAN"))
+    assert any("Collection scan" in msg for msg in result)
+
+
+def test_mowry_high_docs_examined_ratio():
+    result = mowry(_summary(n_returned=1, docs_examined=100, keys_examined=5))
+    assert any("docs-examined-to-returned" in msg for msg in result)
+
+
+def test_mowry_high_keys_examined_ratio():
+    result = mowry(_summary(n_returned=1, docs_examined=5, keys_examined=100))
+    assert any("keys-examined-to-returned" in msg for msg in result)
+
+
+def test_mowry_multiple_findings():
+    result = mowry(_summary(stage="COLLSCAN", n_returned=1, docs_examined=500, keys_examined=0))
+    assert len(result) >= 2
+
+
+def test_mowry_zero_returned_no_crash():
+    result = mowry(_summary(n_returned=0, docs_examined=0, keys_examined=0))
+    assert isinstance(result, list)
+    assert len(result) >= 1
+
+
+def test_mowry_empty_summary_no_crash():
+    result = mowry({})
+    assert result == ["No obvious issues detected."]
