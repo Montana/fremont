@@ -233,7 +233,7 @@ An empty list means no redundancy was detected. `decoto` never queries the datab
 
 ## `paseo_padre`
 
-`paseo_padre` compares two `benchmark_query` results — a *before* and an *after* — and returns delta statistics plus a plain-English verdict. It is the natural last step after adding an index: benchmark the query, create the index, benchmark again, then call `paseo_padre` to quantify the change.
+`paseo padre` compares two `benchmark_query` results — a *before* and an *after* — and returns delta statistics plus a plain-English verdict. It is the natural last step after adding an index: benchmark the query, create the index, benchmark again, then call `paseo_padre` to quantify the change.
 
 ### Return value
 
