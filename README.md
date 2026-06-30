@@ -2,8 +2,8 @@
 
 # Fremont
  
-https://github.com/user-attachments/assets/f209c0d7-ac4d-4ddf-bd20-3de8afc172ed
- 
+https://github.com/user-attachments/assets/2a5374e7-a440-41a2-9f4e-cfea79610e76
+
 Fremont is a remix of a MongoDB performance helper CLI demo built for HaloArchives.com.
  
 Fremont helps you inspect MongoDB collections, read index definitions, run query explain plans, benchmark query shapes, and suggest basic compound indexes. The bundled demo loads a Halo 2 stats archive (`halo2_archive`) with four collections:
