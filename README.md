@@ -231,7 +231,7 @@ Example output:
 
 An empty list means no redundancy was detected. `decoto` never queries the database; it works entirely from the index metadata you pass in.
 
-## `paseo_padre`
+## `paseo padre`
 
 `paseo padre` compares two `benchmark_query` results — a *before* and an *after* — and returns delta statistics plus a plain-English verdict. It is the natural last step after adding an index: benchmark the query, create the index, benchmark again, then call `paseo_padre` to quantify the change.
 
