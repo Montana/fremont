@@ -2,7 +2,7 @@
 
 # Fremont
 
-_Feel like you're right at home_
+_Feel like you're right at home._
  
 https://github.com/user-attachments/assets/2a5374e7-a440-41a2-9f4e-cfea79610e76
 
