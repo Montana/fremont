@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import random
 
 from pymongo import MongoClient
@@ -63,7 +63,7 @@ for i in range(5000):
         {
             "gamertag": gamertag,
             "region": random.choice(["West", "East", "Midwest", "South", "EU"]),
-            "joined_at": datetime.utcnow() - timedelta(days=random.randint(100, 7000)),
+            "joined_at": datetime.now(timezone.utc) - timedelta(days=random.randint(100, 7000)),
             "highest_level": random.randint(1, 50),
         }
     )
@@ -80,7 +80,7 @@ for i in range(50000):
             "map": random.choice(maps),
             "playlist": random.choice([p["name"] for p in playlists]),
             "duration_seconds": random.randint(330, 900),
-            "played_at": datetime.utcnow() - timedelta(days=random.randint(1, 4200)),
+            "played_at": datetime.now(timezone.utc) - timedelta(days=random.randint(1, 4200)),
             "winner_team": random.choice(["red", "blue"]),
         }
     )
@@ -108,7 +108,7 @@ for i in range(200000):
             "deaths": deaths,
             "assists": assists,
             "kd_ratio": round(kills / max(deaths, 1), 2),
-            "played_at": datetime.utcnow() - timedelta(days=random.randint(1, 4200)),
+            "played_at": datetime.now(timezone.utc) - timedelta(days=random.randint(1, 4200)),
         }
     )
 
