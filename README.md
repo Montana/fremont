@@ -154,7 +154,7 @@ Options: `--filter`, `--projection`, `--sort`, `--limit`, `--uri`, `--db`, `--ra
  
 The summary surfaces `executionTimeMillis`, `nReturned`, `totalKeysExamined`, `totalDocsExamined`, the winning stage chain (for example `LIMIT -> SORT -> FETCH -> IXSCAN`), and the name of the index that was used.
 
-## `niles`
+## `Niles`
 
 `niles` scans a MongoDB filter document for known query anti-patterns — things that hurt performance regardless of what indexes exist. It is the right first check before you reach for `explain` or `suggest-index`.
 
