@@ -1,9 +1,3 @@
-"""Tests for the pure, DB-free helpers: the ESR index heuristic and JSON parsing.
-
-These mirror the worked examples documented in the README so the docs and the
-code can't silently drift apart.
-"""
-
 from __future__ import annotations
 
 import pytest
